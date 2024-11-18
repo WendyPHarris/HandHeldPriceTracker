@@ -9,7 +9,7 @@ The **Handheld Price Tracker** is a Python-based tool designed to track the curr
 Our tool is built on a modern stack for simplicity and performance:
 - **Backend Framework**: 🐍 Flask (Beginner-friendly and lightweight).
 - **API Style**: 🌐 REST (Easy-to-use and widely adopted).
-- **Database**: 🛢️ MySQL (Reliable for structured data storage).
+- **Database**: 🛢️ SQLite (Beginner-friendly and lightweight).
 - **Visualization**: 📈 Plotly (Interactive and beautiful graphs).
 
 ---
