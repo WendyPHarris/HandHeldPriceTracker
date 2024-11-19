@@ -1,0 +1,152 @@
+# --------------------------------------------------------------------------------------------------------
+
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import plotly.express as px
+from tkinter import Tk, Label, StringVar, ttk
+import threading
+
+# --------------------------------------------------------------------------------------------------------
+
+# terminal message
+print("Extracting data. This may take several minutes...")
+
+# --------------------------------------------------------------------------------------------------------
+
+# Function to fetch and parse HTML
+def fetch_ebay_prices(search_term, condition):
+    url = f"https://www.ebay.co.uk/sch/i.html?_nkw={search_term}+{condition.replace(' ', '+')}&LH_PrefLoc=1"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    
+    # Extract price data
+    items = soup.select('.s-item')
+    prices = []
+    for item in items:
+        price_tag = item.select_one('.s-item__price')
+        if price_tag:
+            price = price_tag.get_text()
+            # Clean price (handle GBP and remove commas)
+            if '£' in price:
+                price = float(price.replace('£', '').replace(',', '').split(' ')[0])
+                prices.append(price)
+            else:
+                continue
+    
+    return prices
+
+# --------------------------------------------------------------------------------------------------------
+
+# Function to fetch data and update progress
+def fetch_data_and_update_progress(console_label, condition_label, overall_progress_bar, console_progress_bar):
+    consoles = ['Nintendo Switch', 'Game Boy Advance', 'Game Boy Advance SP', '3DS XL', 'New 3DS XL', '2DS XL', 'DS Lite']
+    conditions = ['new', 'used', 'for parts']
+    all_data = []
+    
+    total_steps = len(consoles) * len(conditions)
+    current_step = 0
+
+    for console in consoles:
+        console_label.set(f"Fetching data for {console}...")
+        console_progress_bar['value'] = 0  # Reset console-specific progress bar
+        root.update_idletasks()
+
+        total_conditions = len(conditions)
+        for i, condition in enumerate(conditions):
+            condition_label.set(f"Condition: {condition.capitalize()}")
+            prices = fetch_ebay_prices(console, condition)
+            for price in prices:
+                all_data.append({'Console': console, 'Condition': condition.capitalize(), 'Price': price})
+
+            # --------------------------------------------------------------------------------------------------------
+
+            # Update console-specific progress bar
+            console_progress = int(((i + 1) / total_conditions) * 100)
+            console_progress_bar['value'] = console_progress
+            root.update_idletasks()
+
+            # Update overall progress bar
+            current_step += 1
+            overall_progress = int((current_step / total_steps) * 100)
+            overall_progress_bar['value'] = overall_progress
+            root.update_idletasks()
+
+            # --------------------------------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------------------------------
+
+    # Save the data to global DataFrame
+    global data
+    data = pd.DataFrame(all_data)
+
+    # --------------------------------------------------------------------------------------------------------
+
+    # Close the tkinter window once loading is complete
+    console_label.set("Complete! Redirecting you now...")
+    condition_label.set("")
+    root.update_idletasks()
+    root.destroy()
+
+    # --------------------------------------------------------------------------------------------------------
+
+# Tkinter GUI setup
+root = Tk()
+root.title("Loading Data")
+root.geometry("400x200")
+
+# Labels for progress
+
+#overall progress
+console_label = StringVar()
+console_label.set("Starting...")
+Label(root, textvariable=console_label, font=("Arial", 12)).pack(pady=10)
+
+# Overall progress bar
+Label(root, text="Overall Progress:").pack()
+overall_progress_bar = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
+overall_progress_bar.pack(pady=5)
+
+# Console-specific progress bar
+Label(root, text="Console Progress:").pack()
+# Condition label
+condition_label = StringVar()
+condition_label.set("")
+Label(root, textvariable=condition_label, font=("Arial", 8)).pack()
+#condition progress bar
+console_progress_bar = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
+console_progress_bar.pack(pady=5)
+
+# Run the data fetch in a separate thread to avoid blocking the GUI
+thread = threading.Thread(target=fetch_data_and_update_progress, args=(console_label, condition_label, overall_progress_bar, console_progress_bar))
+thread.start()
+
+# Start the tkinter main loop
+root.mainloop()
+
+# --------------------------------------------------------------------------------------------------------
+
+# Create an interactive boxplot
+fig = px.box(
+    data,
+    x="Console",
+    y="Price",
+    color="Condition",
+    title="Ebay Price Trends for Handheld Consoles by Condition",
+    labels={"Price": "Price (GBP)", "Console": "Handheld Console"},
+    hover_data=["Condition"]
+)
+
+# Customize layout
+fig.update_layout(
+    xaxis_title="Handheld Console",
+    yaxis_title="Price (GBP)",
+    legend_title="Condition",
+    template="plotly_white",
+    font=dict(size=14)
+)
+
+# Show the interactive plot
+fig.show()
+
+# --------------------------------------------------------------------------------------------------------
